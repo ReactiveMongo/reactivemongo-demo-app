@@ -2,7 +2,7 @@
 
 This is a sample app to show in a few lines of code how MongoDB can be used to build a simple (yet full featured) web application.
 
-This example use the following:
+This example uses the following:
 * MongoDB (*yeah, no kidding*)
 * ReactiveMongo, a non-blocking and asynchronous Scala driver for MongoDB
 * Play 2.1 as a web framework
