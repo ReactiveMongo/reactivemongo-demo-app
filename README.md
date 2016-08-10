@@ -35,7 +35,7 @@ A document is a set of data, in BSON (Binary JSON). This means that the manipula
 
 As for data, queries are expressed in JSON style. It is very easy to write and read Mongo queries - you use the same format that you manipulate every day when you build web applications.
 
-But the real power of MongoDB is that it is very scalable. It is very easy to add replicas (for replication, or for balancing eventual consistent read operations), and shards: when you get a high volume of data, you can set up a new server that will store only a part of the data. Mongo handles the query routing so that it is transparent for the developpers.
+But the real power of MongoDB is that it is very scalable. It is very easy to add replicas (for replication, or for balancing eventual consistent read operations), and shards: when you get a high volume of data, you can set up a new server that will store only a part of the data. Mongo handles the query routing so that it is transparent for the developers.
 
 ### Simple Query
 
