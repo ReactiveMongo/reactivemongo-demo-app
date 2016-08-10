@@ -221,6 +221,6 @@ val futureResult: Future[ReadFile[BSONValue]] = gridFS.writeFromInputStream(file
 
 ## About the Web Application
 
-This web application uses all these features from MongoDB and ReactiveMongo. Obviously, they are adapated to fit the Play concepts - take a look to the code and start your own!
+This web application uses all these features from MongoDB and ReactiveMongo. Obviously, they are adapted to fit the Play concepts - take a look to the code and start your own!
 
 Author: [Stephane Godbillon](http://stephane.godbillon.com) - [Twitter](https://twitter.com/sgodbillon)
