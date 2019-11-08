@@ -1,6 +1,6 @@
 name := "reactivemongo-demo-app"
 
-val buildVersion = "0.18.7"
+val buildVersion = "0.19.0"
 
 version := buildVersion
 
@@ -18,7 +18,7 @@ scalacOptions ++= Seq(
   //"-Xfatal-warnings"
 )
 
-scalaVersion := "2.13.0"
+scalaVersion := "2.13.1"
 
 libraryDependencies ++= {
   val os = sys.props.get("os.name") match {

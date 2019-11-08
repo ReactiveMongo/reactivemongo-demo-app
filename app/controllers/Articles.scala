@@ -4,7 +4,7 @@ import javax.inject.Inject
 
 import org.joda.time.DateTime
 
-import scala.concurrent.{ Await, Future, duration }, duration.Duration
+import scala.concurrent.Future
 
 import play.api.Logger
 
@@ -12,7 +12,7 @@ import play.api.mvc.{ AbstractController, ControllerComponents, Request }
 import play.api.libs.json.{ Json, JsObject, JsString }
 
 import reactivemongo.api.Cursor
-import reactivemongo.api.gridfs.{ GridFS, ReadFile }
+import reactivemongo.api.gridfs.ReadFile
 
 import play.modules.reactivemongo.{
   MongoController, ReactiveMongoApi, ReactiveMongoComponents
@@ -45,7 +45,7 @@ class Articles @Inject() (
   //val gridFS = GridFS(db, "attachments")
   private def gridFS: Future[MongoController.JsGridFS] = for {
     db <- reactiveMongoApi.database
-    fs = GridFS[JSONSerializationPack.type](db)
+    fs <- reactiveMongoApi.asyncGridFS
     _ <- fs.ensureIndex().map { index =>
       // let's build an index on our gridfs chunks collection if none
       Logger(s"Checked index, result is $index")
@@ -98,7 +98,7 @@ class Articles @Inject() (
         // search for the matching attachments
         // find(...).toList returns a future list of documents
         // (here, a future list of ReadFileEntry)
-        fs.find[JsObject, JSONReadFile](
+        fs.find[JsObject, JsString](
           Json.obj("article" -> article.id.get)).
           collect[List](-1, Cursor.FailOnError[List[JSONReadFile]]()).
           map { files =>
@@ -158,7 +158,7 @@ class Articles @Inject() (
     // let's collect all the attachments matching that match the article to delete
     (for {
       fs <- gridFS
-      files <- fs.find[JsObject, JSONReadFile](Json.obj("article" -> id)).
+      files <- fs.find[JsObject, JsString](Json.obj("article" -> id)).
       collect[List](-1, Cursor.FailOnError[List[JSONReadFile]]())
       _ <- {
         // for each attachment, delete their chunks and then their file entry
@@ -177,7 +177,6 @@ class Articles @Inject() (
   // save the uploaded file as an attachment of the article with the given id
   def saveAttachment(id: String) = {
     val gfs = gridFS
-    lazy val fs = Await.result(gfs, Duration("5s"))
 
     Action.async(gridFSBodyParser(gfs)) { request =>
       val file = request.body.files.head.ref
@@ -185,11 +184,14 @@ class Articles @Inject() (
       // when the upload is complete, we add the article id to the file entry
       // (in order to find the attachments of the article)
 
-      fs.files.update.one(
-        Json.obj("_id" -> file.id),
-        Json.obj(f"$$set" -> Json.obj("article" -> id))).map { _ =>
-        Redirect(routes.Articles.showEditForm(id))
-      }.recover {
+      (for {
+        fileColl <- reactiveMongoApi.database.map(
+          _.collection[JSONCollection]("fs.files"))
+
+        _ <- fileColl.update.one(
+          Json.obj("_id" -> file.id),
+          Json.obj(f"$$set" -> Json.obj("article" -> id)))
+      } yield Redirect(routes.Articles.showEditForm(id))).recover {
         case e => InternalServerError(e.getMessage())
       }
     }
@@ -198,7 +200,7 @@ class Articles @Inject() (
   def getAttachment(id: String) = Action.async { request =>
     gridFS.flatMap { fs =>
       // find the matching attachment, if any, and streams it to the client
-      val file = fs.find[JsObject, JSONReadFile](Json.obj("_id" -> id))
+      val file = fs.find[JsObject, JsString](Json.obj("_id" -> id))
 
       request.getQueryString("inline") match {
         case Some("true") =>
