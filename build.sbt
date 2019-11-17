@@ -1,12 +1,12 @@
 name := "reactivemongo-demo-app"
 
-val buildVersion = "0.19.0"
+val buildVersion = "0.19.1"
 
 version := buildVersion
 
 resolvers ++= Seq(
   Resolver.sonatypeRepo("snapshots"),
-  "Sonatype Staging" at "https://oss.sonatype.org/content/repositories/staging/")
+  Resolver.sonatypeRepo("staging"))
 
 scalacOptions ++= Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8",
