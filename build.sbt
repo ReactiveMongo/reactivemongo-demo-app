@@ -1,6 +1,6 @@
 name := "reactivemongo-demo-app"
 
-val buildVersion = "0.19.4"
+val buildVersion = "0.19.6"
 
 version := buildVersion
 
