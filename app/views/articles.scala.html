@@ -1,7 +1,9 @@
+@import reactivemongo.api.{Version=>v}
+
 @(articles: List[models.Article], activeSort: String)(implicit r: RequestHeader)
 
 @main("Welcome to ReactiveMongo Demo") {
-  <p><strong>Made with ReactiveMongo:</strong> <a href="http://search.maven.org/#artifactdetails%7Corg.reactivemongo%7Creactivemongo_2.12%7C0.12.4%7C"><img src="https://maven-badges.herokuapp.com/maven-central/org.reactivemongo/reactivemongo_2.12/badge.png" /></a></p>
+  <p><strong>Made with ReactiveMongo @{v.majorVersion}:</strong> <a href="http://search.maven.org/#artifactdetails%7Corg.reactivemongo%7Creactivemongo_@{v.scalaBinaryVersion}%7C@{v}%7C"><img src="https://img.shields.io/badge/maven--central-v@{v}-blue" /></a></p>
 
   <div class="row">
     <div class="span12">
