@@ -29,12 +29,16 @@ libraryDependencies ++= {
       "linux"
   }
 
-  val (playVer, nativeVer) = buildVersion.span(_ != '-') match {
-    case (major, "") =>
+  val (playVer, nativeVer) = buildVersion.split("-").toList match {
+    case major :: Nil =>
       s"${major}-play27" -> s"${major}-${os}-x86-64"
 
-    case (major, mod) =>
-      s"${major}-play27${mod}" -> s"${major}-${os}-x86-64${mod}"
+    case vs @ _ => {
+      val pv = ((vs.init :+ "play27") ++ vs.lastOption.toList)
+      val nv = ((vs.init :+ os :+ "x86-64") ++ vs.lastOption.toList)
+
+      pv.mkString("-") -> nv.mkString("-")
+    }
   }
 
   Seq(
