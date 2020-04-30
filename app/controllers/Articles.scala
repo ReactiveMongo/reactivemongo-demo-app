@@ -42,9 +42,7 @@ class Articles @Inject() (
     map(_.collection[JSONCollection]("articles"))
 
   // a GridFS store named 'attachments'
-  //val gridFS = GridFS(db, "attachments")
   private def gridFS: Future[MongoController.JsGridFS] = for {
-    db <- reactiveMongoApi.database
     fs <- reactiveMongoApi.asyncGridFS
     _ <- fs.ensureIndex().map { index =>
       // let's build an index on our gridfs chunks collection if none
