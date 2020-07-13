@@ -9,21 +9,19 @@ import scala.concurrent.Future
 import play.api.Logger
 
 import play.api.mvc.{ AbstractController, ControllerComponents, Request }
-import play.api.libs.json.{ Json, JsObject, JsString }
+import play.api.libs.json.{ Json, JsObject }
 
-import reactivemongo.api.Cursor
-import reactivemongo.api.gridfs.ReadFile
+import reactivemongo.api.bson.{ BSONDocument, BSONObjectID, BSONValue }
 
 import play.modules.reactivemongo.{
   MongoController, ReactiveMongoApi, ReactiveMongoComponents
 }
 
-import reactivemongo.play.json._
-import reactivemongo.play.json.collection._
+import reactivemongo.play.json._, compat._, json2bson._
 
 import models.Article, Article._
 
-class Articles @Inject() (
+final class Articles @Inject() (
   components: ControllerComponents,
   val reactiveMongoApi: ReactiveMongoApi,
   implicit val materializer: akka.stream.Materializer
@@ -31,18 +29,14 @@ class Articles @Inject() (
   with MongoController with ReactiveMongoComponents {
 
   import java.util.UUID
-  import MongoController.readFileReads
-
-  type JSONReadFile = ReadFile[JSONSerializationPack.type, JsString]
-
   implicit def ec = components.executionContext
 
   // get the collection 'articles'
   def collection = reactiveMongoApi.database.
-    map(_.collection[JSONCollection]("articles"))
+    map(_.collection("articles"))
 
   // a GridFS store named 'attachments'
-  private def gridFS: Future[MongoController.JsGridFS] = for {
+  private def gridFS: Future[MongoController.GridFS] = for {
     fs <- reactiveMongoApi.asyncGridFS
     _ <- fs.ensureIndex().map { index =>
       // let's build an index on our gridfs chunks collection if none
@@ -60,29 +54,28 @@ class Articles @Inject() (
 
     // the cursor of documents
     val found = collection.map(
-      _.find(Json.obj(), Option.empty[JsObject]).sort(sort).cursor[Article]())
+      _.find(BSONDocument.empty).sort(sort).cursor[Article]())
 
     // build (asynchronously) a list containing all the articles
-    found.flatMap(_.collect[List](-1, Cursor.FailOnError[List[Article]]())).
-      map { articles =>
-        Ok(views.html.articles(articles, activeSort))
-      }.recover {
-        case e =>
-          e.printStackTrace()
-          BadRequest(e.getMessage())
-      }
+    found.flatMap(_.collect[List]()).map { articles =>
+      Ok(views.html.articles(articles, activeSort))
+    }.recover {
+      case e =>
+        e.printStackTrace()
+        BadRequest(e.getMessage())
+    }
   }
 
   def showCreationForm = Action { implicit request =>
     implicit val messages = messagesApi.preferred(request)
 
-    Ok(views.html.editArticle(None, Article.form, None))
+    Ok(views.html.editArticle(None, Article.form, List.empty))
   }
 
   def showEditForm(id: String) = Action.async { implicit request =>
     // get the documents having this id (there will be 0 or 1 result)
     def futureArticle = collection.flatMap(
-      _.find(Json.obj("_id" -> id), Option.empty[JsObject]).one[Article])
+      _.find(BSONDocument("_id" -> id)).one[Article])
 
     // ... so we get optionally the matching article, if any
     // let's use for-comprehensions to compose futures
@@ -92,20 +85,25 @@ class Articles @Inject() (
       // if there is some article, return a future of result
       // with the article and its attachments
       fs <- gridFS
-      result <- maybeArticle.map { article =>
+      result <- maybeArticle.flatMap { a => a.id.map(_ -> a) }.map {
+        case (id, article) =>
         // search for the matching attachments
         // find(...).toList returns a future list of documents
         // (here, a future list of ReadFileEntry)
-        fs.find[JsObject, JsString](
-          Json.obj("article" -> article.id.get)).
-          collect[List](-1, Cursor.FailOnError[List[JSONReadFile]]()).
-          map { files =>
+        fs.find(BSONDocument("article" -> id)).collect[List]().map { files =>
+            @inline def filesWithId = files.flatMap { file =>
+              file.id match {
+                case id: BSONObjectID => Some(id -> file)
+                case _ => Option.empty[(BSONObjectID, fs.ReadFile[BSONValue])]
+              }
+            }
 
-          @inline def filesWithId = files.map { file => file.id -> file }
           implicit val messages = messagesApi.preferred(request)
           
-          Ok(views.html.editArticle(Some(id),
-            Article.form.fill(article), Some(filesWithId)))
+          Ok(views.html.editArticle(
+            id = Some(id),
+            form = Article.form.fill(article),
+            files = filesWithId))
         }
       }.getOrElse(Future.successful(NotFound))
     } yield result
@@ -115,39 +113,45 @@ class Articles @Inject() (
     implicit val messages = messagesApi.preferred(request)
 
     Article.form.bindFromRequest.fold(
-      errors => Future.successful(
-        Ok(views.html.editArticle(None, errors, None))),
+      errors => {
+        println(s"errors = $errors")
+        Future.successful(
+          Ok(views.html.editArticle(None, errors, List.empty)))
+      },
 
       // if no error, then insert the article into the 'articles' collection
-      article => collection.flatMap(_.insert.one(article.copy(
-        id = article.id.orElse(Some(UUID.randomUUID().toString)),
-        creationDate = Some(new DateTime()),
-        updateDate = Some(new DateTime()))
-      )).map(_ => Redirect(routes.Articles.index))
+      article => {
+        println(s"article = $article")
+        collection.flatMap(_.insert.one(article.copy(
+          id = article.id.orElse(Some(UUID.randomUUID().toString)),
+          creationDate = Some(new DateTime()),
+          updateDate = Some(new DateTime()))
+        )).map(_ => Redirect(routes.Articles.index))
+      }
     )
   }
 
   def edit(id: String) = Action.async { implicit request =>
     implicit val messages = messagesApi.preferred(request)
-    import reactivemongo.bson.BSONDateTime
+    import reactivemongo.api.bson.BSONDateTime
 
     Article.form.bindFromRequest.fold(
       errors => Future.successful(
-        Ok(views.html.editArticle(Some(id), errors, None))),
+        Ok(views.html.editArticle(Some(id), errors, List.empty))),
 
       article => {
         // create a modifier document, ie a document that contains the update operations to run onto the documents matching the query
-        val modifier = Json.obj(
+        val modifier = BSONDocument(
           // this modifier will set the fields
           // 'updateDate', 'title', 'content', and 'publisher'
-          "$set" -> Json.obj(
+          f"$$set" -> BSONDocument(
             "updateDate" -> BSONDateTime(new DateTime().getMillis),
             "title" -> article.title,
             "content" -> article.content,
             "publisher" -> article.publisher))
 
         // ok, let's do the update
-        collection.flatMap(_.update.one(Json.obj("_id" -> id), modifier).
+        collection.flatMap(_.update.one(BSONDocument("_id" -> id), modifier).
           map { _ => Redirect(routes.Articles.index) })
       })
   }
@@ -156,61 +160,63 @@ class Articles @Inject() (
     // let's collect all the attachments matching that match the article to delete
     (for {
       fs <- gridFS
-      files <- fs.find[JsObject, JsString](Json.obj("article" -> id)).
-      collect[List](-1, Cursor.FailOnError[List[JSONReadFile]]())
+      files <- fs.find(BSONDocument("article" -> id)).collect[List]()
+
       _ <- {
         // for each attachment, delete their chunks and then their file entry
-        def deletions = files.map(fs.remove(_))
-
-        Future.sequence(deletions)
+        Future.sequence(files.map { f => fs.remove(f.id) })
       }
       coll <- collection
       _ <- {
         // now, the last operation: remove the article
-        coll.delete.one(Json.obj("_id" -> id))
+        coll.delete.one(BSONDocument("_id" -> id))
       }
     } yield Ok).recover { case _ => InternalServerError }
   }
 
   // save the uploaded file as an attachment of the article with the given id
-  def saveAttachment(id: String) = {
-    val gfs = gridFS
+  def saveAttachment(articleId: String) =
+    Action.async(gridFSBodyParser(gridFS)) { request =>
+      def redirectToArticle = Redirect(routes.Articles.showEditForm(articleId))
 
-    Action.async(gridFSBodyParser(gfs)) { request =>
-      val file = request.body.files.head.ref
+      request.body.files.headOption match {
+        case Some(file) => {
+          // when the upload is complete, we add the article id
+          // to the file entry (in order to find the attachments of the article)
 
-      // when the upload is complete, we add the article id to the file entry
-      // (in order to find the attachments of the article)
+          (for {
+            gfs <- gridFS
+            fileColl <- gfs.update(
+              file.ref.id, BSONDocument(
+                f"$$set" -> BSONDocument("article" -> articleId)))
+          } yield redirectToArticle).recover {
+            case e =>
+              InternalServerError(e.getMessage())
+          }
+        }
 
-      (for {
-        fileColl <- reactiveMongoApi.database.map(
-          _.collection[JSONCollection]("fs.files"))
-
-        _ <- fileColl.update.one(
-          Json.obj("_id" -> file.id),
-          Json.obj(f"$$set" -> Json.obj("article" -> id)))
-      } yield Redirect(routes.Articles.showEditForm(id))).recover {
-        case e => InternalServerError(e.getMessage())
+        case _ =>
+          Future.successful(redirectToArticle)
       }
     }
-  }
 
-  def getAttachment(id: String) = Action.async { request =>
+  def getAttachment(id: BSONObjectID) = Action.async { request =>
     gridFS.flatMap { fs =>
       // find the matching attachment, if any, and streams it to the client
-      val file = fs.find[JsObject, JsString](Json.obj("_id" -> id))
+      val file = fs.find(BSONDocument("_id" -> id))
 
       request.getQueryString("inline") match {
         case Some("true") =>
-          serve[JsString, JSONReadFile](fs)(file, CONTENT_DISPOSITION_INLINE)
+          serve(fs)(file, "inline")
 
-        case _            => serve[JsString, JSONReadFile](fs)(file)
+        case _            =>
+          serve(fs)(file)
       }
     }
   }
 
-  def removeAttachment(id: String) = Action.async {
-    gridFS.flatMap(_.remove(Json toJson id).map(_ => Ok).
+  def removeAttachment(id: BSONObjectID) = Action.async {
+    gridFS.flatMap(_.remove(id).map(_ => Ok).
       recover { case _ => InternalServerError })
   }
 

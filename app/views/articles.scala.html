@@ -1,39 +1,51 @@
-@import reactivemongo.api.{Version=>v}
-
 @(articles: List[models.Article], activeSort: String)(implicit r: RequestHeader)
 
-@main("Welcome to ReactiveMongo Demo") {
-  <p><strong>Made with ReactiveMongo @{v.majorVersion}:</strong> <a href="http://search.maven.org/#artifactdetails%7Corg.reactivemongo%7Creactivemongo_@{v.scalaBinaryVersion}%7C@{v}%7C"><img src="https://img.shields.io/badge/maven--central-v@{v}-blue" /></a></p>
+@main("ReactiveMongo Demo - Articles") {
+  <div class="mb-2">
+    <h2>Available articles</h2>
 
-  <div class="row">
-    <div class="span12">
-      <h2>Available articles</h2>
-      <div id="sort">
-        <span>Sort by:</span>
-        <ul class="nav nav-pills">
-          <li @if(activeSort == "title"){class="active"}><a href="@routes.Articles.index?sort=title">title</a></li>
-          <li @if(activeSort == "-title"){class="active"}><a href="@routes.Articles.index?sort=-title">-title</a></li>
-          <li @if(activeSort == "publisher"){class="active"}><a href="@routes.Articles.index?sort=publisher">publisher</a></li>
-          <li @if(activeSort == "-publisher"){class="active"}><a href="@routes.Articles.index?sort=-publisher">-publisher</a></li>
-          <li @if(activeSort == "creationDate"){class="active"}><a href="@routes.Articles.index?sort=creationDate">creation</a></li>
-          <li @if(activeSort == "-creationDate"){class="active"}><a href="@routes.Articles.index?sort=-creationDate">-creation</a></li>
-          <li @if(activeSort == "updateDate"){class="active"}><a href="@routes.Articles.index?sort=updateDate">update</a></li>
-          <li @if(activeSort == "-updateDate"){class="active"}><a href="@routes.Articles.index?sort=-updateDate">-update</a></li>
-          <li @if(activeSort == "none"){class="active"}><a href="@routes.Articles.index">none</a></li>
-        </ul>
-      </div>
-      @if(articles.isEmpty) {
-        <p>No articles available yet.</p>
-      } else {
-      <ul>
-      @articles.map { article =>
-        <li><a href="@routes.Articles.showEditForm(article.id.get)">@article.title</a> <em>by @article.publisher</em> (last modified : @article.updateDate.map(u => org.joda.time.format.DateTimeFormat.forPattern("MMM dd, yyyy").print(u)).orElse(Some("n/a"))) - <a href="@helper.CSRF(routes.Articles.delete(article.id.get))" class="delete">delete</a></li>
-      }
-      </ul>
-      }
-      <div>
-        <a href="@routes.Articles.showCreationForm">Create</a>
-      </div>
-    </div>
+    <ul class="list-inline">
+      <li class="list-inline-item">
+        <a class="btn btn-primary"
+           href="@routes.Articles.showCreationForm">Create</a>
+      </li>
+
+      <li class="list-inline-item">
+        <div class="dropdown ">
+          <button class="btn btn-secondary dropdown-toggle" type="button" id="sort-by" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Sort by
+          </button>
+
+          <div class="dropdown-menu" aria-labelledby="sort-by">
+            <a class="dropdown-item@if(activeSort == "title"){ active}" href="@routes.Articles.index?sort=title">Title (asc)</a>
+            <a class="dropdown-item@if(activeSort == "-title"){ active}" href="@routes.Articles.index?sort=-title">Title (desc)</a>
+
+            <a class="dropdown-item@if(activeSort == "publisher"){ active}" href="@routes.Articles.index?sort=publisher">Publisher (asc)</a>
+            <a class="dropdown-item@if(activeSort == "-publisher"){ active}" href="@routes.Articles.index?sort=-publisher">Publisher (desc)</a>
+
+            <a class="dropdown-item@if(activeSort == "creationDate"){ active}" href="@routes.Articles.index?sort=creationDate">Creation (asc)</a>
+            <a class="dropdown-item@if(activeSort == "-creationDate"){ active}" href="@routes.Articles.index?sort=-creationDate">Creation (desc)</a>
+
+            <a class="dropdown-item@if(activeSort == "updateDate"){ active}" href="@routes.Articles.index?sort=updateDate">Update (asc)</a>
+            <a class="dropdown-item@if(activeSort == "-updateDate"){ active}" href="@routes.Articles.index?sort=-updateDate">Update (desc)</a>
+
+            <a class="dropdown-item@if(activeSort == "none"){ active}" href="@routes.Articles.index">None</a>
+
+          </div>
+        </div>
+      </li>
+    </ul>
   </div>
+
+  @if(articles.isEmpty) {
+    <p>No articles available yet.</p>
+  } else {
+    <div class="list-group">
+      @articles.map { article =>
+      <li class="list-group-item">
+        <a href="@routes.Articles.showEditForm(article.id.get)">@article.title</a> <em>by @article.publisher</em> (<span class="d-none d-md-inline">last modified: </span>@article.updateDate.map(u => org.joda.time.format.DateTimeFormat.forPattern("MMM dd, yyyy").print(u)).orElse(Some("n/a"))) <a href="@helper.CSRF(routes.Articles.delete(article.id.get))" class="btn btn-sm btn-danger delete">delete</a></li>
+      }
+
+    </div>
+  }
 }

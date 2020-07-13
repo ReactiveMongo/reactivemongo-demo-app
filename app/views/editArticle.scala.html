@@ -1,39 +1,59 @@
-@(id: Option[String], form: Form[models.Article], files: Option[List[(play.api.libs.json.JsString, reactivemongo.api.gridfs.ReadFile[reactivemongo.play.json.JSONSerializationPack.type, play.api.libs.json.JsString])]])(implicit r: RequestHeader, lang: play.api.i18n.Messages)
+@(id: Option[String], form: Form[models.Article], files: List[(reactivemongo.api.bson.BSONObjectID, reactivemongo.api.gridfs.ReadFile[reactivemongo.api.bson.BSONValue, reactivemongo.api.bson.BSONDocument])])(implicit r: RequestHeader, lang: play.api.i18n.Messages)
 
-@main("Welcome to ReactiveMongo Demo") {
-  <div class="row">
-  <div class="span8">
-  <h2>
-    @if(!id.isDefined) {
-      Add
-    } else {
-      Edit
-    } an article</h2>
-  @helper.form(action = helper.CSRF(if(!id.isDefined) routes.Articles.create else routes.Articles.edit(id.get)), Symbol("class") -> "form-horizontal") {
-    @helper.inputText(form("title"))
-    @helper.inputText(form("publisher"))
-    @helper.textarea(form("content"))
-    <div class="form-actions">
-      <input class="btn btn-primary" type="submit">
-    </div>
-  }
-  </div>
-  <div class="span4">
-  <h2>Attachments</h2>
-  @if(id.isDefined) {
-    @if(files.isDefined) {
-    <ul>
-      @files.get.map { file =>
-      <li><a href="@helper.CSRF(routes.Articles.getAttachment(file._1.value))">@file._2.filename</a> - <a target="_blank" href="@helper.CSRF(routes.Articles.getAttachment(file._1.value))?inline=true">inline</a> - <a class="delete" href="@helper.CSRF(routes.Articles.removeAttachment(file._1.value))">delete</a></li>
+@main("ReactiveMongo Demo - Edit an article") {
+  <div class="row row-cols-1 row-cols-md-2">
+    <div class="col mb-2">
+      <h2>
+        @if(id.isEmpty) {
+          Add
+        } else {
+          Edit
+        } an article</h2>
+
+      @if(form.errors.nonEmpty) {
+      <div class="alert alert-danger" role="alert">
+        There are some errors
+      </div>
       }
-    </ul>
-    }
-    @helper.form(action = helper.CSRF(routes.Articles.saveAttachment(id.get)), Symbol("enctype") -> "multipart/form-data") {
-      <input type="file" name="picture">
-      <div>
-        <input type="submit" class="btn">
+
+      @helper.form(action = helper.CSRF(if(id.isEmpty) routes.Articles.create else routes.Articles.edit(id.get)), Symbol("class") -> "form-horizontal") {
+        @helper.inputText(form("title"))
+        @helper.inputText(form("publisher"))
+        @helper.textarea(form("content"))
+
+        <button class="btn btn-primary" type="submit">Save</button>
+      }
+    </div>
+
+    @id.map { aid =>
+      <div class="col">
+        <h2>Attachments</h2>
+
+        @if(files.nonEmpty) {
+          <ul class="list-unstyled">
+            @files.map { file =>
+              <li>
+                <a href="@helper.CSRF(routes.Articles.getAttachment(file._1))">@file._2.filename</a>
+                <span class="d-none d-md-inline">
+                  (<a target="_blank" href="@helper.CSRF(routes.Articles.getAttachment(file._1))?inline=true">inline</a>)
+                </span>
+                <a class="delete btn btn-secondary btn-sm btn-danger" href="@helper.CSRF(routes.Articles.removeAttachment(file._1))">Delete</a>
+              </li>
+            }
+          </ul>
+        }
+
+        @helper.form(action = helper.CSRF(routes.Articles.saveAttachment(aid)), Symbol("enctype") -> "multipart/form-data") {
+          <div class="custom-file mb-2">
+            <input type="file" name="attachment" id="attachment"
+                   class="custom-file-input">
+            <label class="custom-file-label" for="attachment">
+              Add attachment</label>
+          </div>
+
+          <button type="submit" class="btn btn-secondary">Upload</button>
+        }
       </div>
     }
-  }
   </div>
 }

@@ -1,16 +1,17 @@
 $(function() {
 	$('a.delete').click(function(e) {
+		e.preventDefault();
+
 		if(confirm('Are you sure to delete this?')) {
-			var href = $(this).attr('href')
 			$.ajax({
 				type: 'DELETE',
-				url: href,
+				url: $(this).attr('href'),
 				success: function() {
-					document.location.reload()
+				  document.location.reload()
 				}
 			})
 		}
-		e.preventDefault();
+
 		return false
 	})
 })
