@@ -43,7 +43,7 @@
 
     <footer class="fixed-bottom bg-light pt-2">
       <div class="container">
-        <p><strong>Version @{v.majorVersion}:</strong> <a href="http://search.maven.org/#artifactdetails%7Corg.reactivemongo%7Creactivemongo_@{v.scalaBinaryVersion}%7C@{v}%7C"><img src="https://img.shields.io/badge/maven--central-v@{v}-blue" /></a></p>        
+        <p><strong>Version @{v.majorVersion}:</strong> <a href="http://search.maven.org/#artifactdetails%7Corg.reactivemongo%7Creactivemongo_@{v.scalaBinaryVersion}%7C@{v}%7C"><img src="https://img.shields.io/badge/maven--central-v@{v.toString.replaceAll("-","%96")}-blue" /></a></p>        
       </div>
     </footer>
     
