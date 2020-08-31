@@ -114,7 +114,6 @@ final class Articles @Inject() (
 
     Article.form.bindFromRequest.fold(
       errors => {
-        println(s"errors = $errors")
         Future.successful(
           Ok(views.html.editArticle(None, errors, List.empty)))
       },
