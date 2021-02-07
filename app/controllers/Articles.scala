@@ -120,7 +120,6 @@ final class Articles @Inject() (
 
       // if no error, then insert the article into the 'articles' collection
       article => {
-        println(s"article = $article")
         collection.flatMap(_.insert.one(article.copy(
           id = article.id.orElse(Some(UUID.randomUUID().toString)),
           creationDate = Some(new DateTime()),
