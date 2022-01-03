@@ -4,7 +4,7 @@ import javax.inject.Inject
 
 import org.joda.time.DateTime
 
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 
 import play.api.Logger
 
@@ -26,10 +26,12 @@ final class Articles @Inject() (
   val reactiveMongoApi: ReactiveMongoApi,
   implicit val materializer: akka.stream.Materializer
 ) extends AbstractController(components)
-  with MongoController with ReactiveMongoComponents {
+    with MongoController with ReactiveMongoComponents {
+
+  import ValueConverters._ // JSON-BSON
 
   import java.util.UUID
-  implicit def ec = components.executionContext
+  implicit def ec: ExecutionContext = components.executionContext
 
   // get the collection 'articles'
   def collection = reactiveMongoApi.database.
@@ -66,10 +68,11 @@ final class Articles @Inject() (
     }
   }
 
-  def showCreationForm = Action { implicit request =>
+  def showCreationForm = Action.async { implicit request =>
     implicit val messages = messagesApi.preferred(request)
 
-    Ok(views.html.editArticle(None, Article.form, List.empty))
+    Future.successful( // Workaround to avoid ambiguity of Action.apply
+      Ok(views.html.editArticle(None, Article.form, List.empty)))
   }
 
   def showEditForm(id: String) = Action.async { implicit request =>
@@ -87,10 +90,10 @@ final class Articles @Inject() (
       fs <- gridFS
       result <- maybeArticle.flatMap { a => a.id.map(_ -> a) }.map {
         case (id, article) =>
-        // search for the matching attachments
-        // find(...).toList returns a future list of documents
-        // (here, a future list of ReadFileEntry)
-        fs.find(BSONDocument("article" -> id)).collect[List]().map { files =>
+          // search for the matching attachments
+          // find(...).toList returns a future list of documents
+          // (here, a future list of ReadFileEntry)
+          fs.find(BSONDocument("article" -> id)).collect[List]().map { files =>
             @inline def filesWithId = files.flatMap { file =>
               file.id match {
                 case id: BSONObjectID => Some(id -> file)
@@ -98,13 +101,13 @@ final class Articles @Inject() (
               }
             }
 
-          implicit val messages = messagesApi.preferred(request)
+            implicit val messages = messagesApi.preferred(request)
           
-          Ok(views.html.editArticle(
-            id = Some(id),
-            form = Article.form.fill(article),
-            files = filesWithId))
-        }
+            Ok(views.html.editArticle(
+              id = Some(id),
+              form = Article.form.fill(article),
+              files = filesWithId))
+          }
       }.getOrElse(Future.successful(NotFound))
     } yield result
   }
@@ -181,7 +184,6 @@ final class Articles @Inject() (
         case Some(file) => {
           // when the upload is complete, we add the article id
           // to the file entry (in order to find the attachments of the article)
-
           (for {
             gfs <- gridFS
             fileColl <- gfs.update(

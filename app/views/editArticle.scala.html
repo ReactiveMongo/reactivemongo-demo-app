@@ -32,7 +32,7 @@
         @if(files.nonEmpty) {
           <ul class="list-unstyled">
             @files.map { file =>
-              <li>
+              <li class="mb-2">
                 <a href="@helper.CSRF(routes.Articles.getAttachment(file._1))">@file._2.filename</a>
                 <span class="d-none d-md-inline">
                   (<a target="_blank" href="@helper.CSRF(routes.Articles.getAttachment(file._1))?inline=true">inline</a>)
@@ -41,6 +41,8 @@
               </li>
             }
           </ul>
+        } else {
+          
         }
 
         @helper.form(action = helper.CSRF(routes.Articles.saveAttachment(aid)), Symbol("enctype") -> "multipart/form-data") {
