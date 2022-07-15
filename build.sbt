@@ -1,12 +1,13 @@
 name := "reactivemongo-demo-app"
 
-val buildVersion = "1.1.0-RC4"
+val buildVersion = "1.1.0-RC5"
 
 version := buildVersion
 
-resolvers ++= Seq(
-  Resolver.sonatypeRepo("snapshots"),
-  Resolver.sonatypeRepo("staging"))
+resolvers ++= {
+  Resolver.sonatypeOssRepos("snapshots") ++:
+  Resolver.sonatypeOssRepos("staging")
+}
 
 scalacOptions ++= Seq(
   "-encoding", "UTF-8",
@@ -26,7 +27,7 @@ scalacOptions ++= {
   } else Seq.empty
 }
 
-scalaVersion := "3.1.3-RC2"
+scalaVersion := "3.1.3"
 
 libraryDependencies ++= {
   val os = sys.props.get("os.name") match {
@@ -55,7 +56,7 @@ libraryDependencies ++= {
     }
   }
 
-  val nettyVer = "4.1.44.Final" // same as driver
+  val nettyVer = "4.1.79.Final" // same as driver
 
   Seq(
     guice,
