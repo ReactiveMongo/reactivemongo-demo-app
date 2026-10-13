@@ -1,13 +1,14 @@
 name := "reactivemongo-demo-app"
 
-val buildVersion = "1.1.0-RC10"
+val buildVersion = "1.1.0-RC22"
 
 version := buildVersion
 
-resolvers ++= {
-  Resolver.sonatypeOssRepos("snapshots") ++:
-  Resolver.sonatypeOssRepos("staging")
-}
+resolvers ++= Seq(
+  "Central Testing repository" at "https://central.sonatype.com/api/v1/publisher/deployments/download",
+  "Sonatype Snapshots" at "https://central.sonatype.com/repository/maven-snapshots/",
+  Resolver.typesafeRepo("releases")
+)
 
 scalacOptions ++= Seq(
   "-encoding", "UTF-8",
@@ -27,7 +28,9 @@ scalacOptions ++= {
   } else Seq.empty
 }
 
-scalaVersion := "3.2.2"
+scalaVersion := "2.13.18"
+
+val akkaVersion = "2.6.21"
 
 libraryDependencies ++= {
   val os = sys.props.get("os.name") match {
@@ -38,32 +41,25 @@ libraryDependencies ++= {
       "linux"
   }
 
+  val arch = if (sys.props("os.arch").contains("aarch64")) "aarch" else "x86"
+
   val playVer = buildVersion.split("-").toList match {
     case major :: Nil =>
-      s"${major}-play28"
+      s"${major}-play29"
 
     case vs @ _ => {
-      val pv = ((vs.init :+ "play28") ++ vs.lastOption.toList)
+      val pv = s"${vs.init.mkString}-play29" :: vs.lastOption.toList
 
-      pv.mkString("-")
+      pv.mkString(".")
     }
   }
 
   Seq(
     guice,
+    "javax.inject" % "javax.inject" % "1",
     "org.reactivemongo" %% "play2-reactivemongo" % playVer,
-    "org.reactivemongo" % s"reactivemongo-shaded-native-${os}-x86-64" % buildVersion
+    "org.reactivemongo" % s"reactivemongo-shaded-native-$os-$arch-64" % buildVersion
   )
-}
-
-libraryDependencies ~= {
-  _.map { dep =>
-    if (dep.organization == "com.typesafe.play") {
-      dep.cross(CrossVersion.for3Use2_13)
-    } else {
-      dep
-    }
-  }
 }
 
 /* Scalafix

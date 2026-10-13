@@ -43,7 +43,7 @@
     <div class="list-group">
       @articles.map { article =>
       <li class="list-group-item">
-        <a href="@routes.Articles.showEditForm(article.id.get)">@article.title</a> <em>by @article.publisher</em> (<span class="d-none d-md-inline">last modified: </span>@article.updateDate.map(u => org.joda.time.format.DateTimeFormat.forPattern("MMM dd, yyyy").print(u)).orElse(Some("n/a"))) <a href="@helper.CSRF(routes.Articles.delete(article.id.get))" class="btn btn-sm btn-danger delete">delete</a></li>
+        <a href="@routes.Articles.showEditForm(article.id.get)">@article.title</a> <em>by @article.publisher</em> (<span class="d-none d-md-inline">last modified: </span>@article.updateDate.orElse(Some("n/a"))) <a href="@helper.CSRF(routes.Articles.delete(article.id.get))" class="btn btn-sm btn-danger delete">delete</a></li>
       }
 
     </div>

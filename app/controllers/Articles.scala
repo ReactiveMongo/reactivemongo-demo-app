@@ -2,7 +2,7 @@ package controllers
 
 import javax.inject.Inject
 
-import org.joda.time.DateTime
+import java.time.LocalDateTime
 
 import scala.concurrent.{ ExecutionContext, Future }
 
@@ -115,7 +115,7 @@ final class Articles @Inject() (
   def create = Action.async { implicit request =>
     implicit val messages = messagesApi.preferred(request)
 
-    Article.form.bindFromRequest.fold(
+    Article.form.bindFromRequest().fold(
       errors => {
         Future.successful(
           Ok(views.html.editArticle(None, errors, List.empty)))
@@ -123,10 +123,12 @@ final class Articles @Inject() (
 
       // if no error, then insert the article into the 'articles' collection
       article => {
+        val now = LocalDateTime.now()
+
         collection.flatMap(_.insert.one(article.copy(
           id = article.id.orElse(Some(UUID.randomUUID().toString)),
-          creationDate = Some(new DateTime()),
-          updateDate = Some(new DateTime()))
+          creationDate = Some(now),
+          updateDate = Some(now))
         )).map(_ => Redirect(routes.Articles.index))
       }
     )
@@ -136,7 +138,7 @@ final class Articles @Inject() (
     implicit val messages = messagesApi.preferred(request)
     import reactivemongo.api.bson.BSONDateTime
 
-    Article.form.bindFromRequest.fold(
+    Article.form.bindFromRequest().fold(
       errors => Future.successful(
         Ok(views.html.editArticle(Some(id), errors, List.empty))),
 
@@ -146,7 +148,7 @@ final class Articles @Inject() (
           // this modifier will set the fields
           // 'updateDate', 'title', 'content', and 'publisher'
           f"$$set" -> BSONDocument(
-            "updateDate" -> BSONDateTime(new DateTime().getMillis),
+            "updateDate" -> BSONDateTime(System.currentTimeMillis()),
             "title" -> article.title,
             "content" -> article.content,
             "publisher" -> article.publisher))

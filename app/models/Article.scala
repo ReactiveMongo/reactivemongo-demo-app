@@ -1,6 +1,6 @@
 package models
 
-import org.joda.time.DateTime
+import java.time.{ Instant, LocalDateTime, ZoneId, ZoneOffset }
 
 import play.api.data._
 import play.api.data.Forms.{ text, longNumber, mapping, nonEmptyText, optional }
@@ -11,8 +11,8 @@ case class Article(
   title: String,
   content: String,
   publisher: String,
-  creationDate: Option[DateTime],
-  updateDate: Option[DateTime])
+  creationDate: Option[LocalDateTime],
+  updateDate: Option[LocalDateTime])
 
 // Turn off your mind, relax, and float downstream
 // It is not dying...
@@ -25,8 +25,8 @@ object Article {
       "title" -> article.title,
       "content" -> article.content,
       "publisher" -> article.publisher,
-      "creationDate" -> article.creationDate.fold(-1L)(_.getMillis),
-      "updateDate" -> article.updateDate.fold(-1L)(_.getMillis))
+      "creationDate" -> article.creationDate.fold(-1L)(_.toInstant(ZoneOffset.UTC).toEpochMilli),
+      "updateDate" -> article.updateDate.fold(-1L)(_.toInstant(ZoneOffset.UTC).toEpochMilli))
   }
 
   implicit object ArticleReads extends Reads[Article] {
@@ -40,8 +40,8 @@ object Article {
         val updateDate = (obj \ "updateDate").asOpt[Long]
 
         JsSuccess(Article(id, title, content, publisher,
-          creationDate.map(new DateTime(_)),
-          updateDate.map(new DateTime(_))))
+          creationDate.map(Instant.ofEpochMilli(_)).map(LocalDateTime.ofInstant(_, ZoneId.systemDefault)),
+          updateDate.map(Instant.ofEpochMilli(_)).map(LocalDateTime.ofInstant(_, ZoneId.systemDefault))))
         
       } catch {
         case cause: Throwable => JsError(cause.getMessage)
@@ -66,15 +66,15 @@ object Article {
         title,
         content,
         publisher,
-        creationDate.map(new DateTime(_)),
-        updateDate.map(new DateTime(_)))
+        creationDate.map(Instant.ofEpochMilli(_)).map(LocalDateTime.ofInstant(_, ZoneId.systemDefault)),
+        updateDate.map(Instant.ofEpochMilli(_)).map(LocalDateTime.ofInstant(_, ZoneId.systemDefault)))
     } { article =>
       Some(
         (article.id,
           article.title,
           article.content,
           article.publisher,
-          article.creationDate.map(_.getMillis),
-          article.updateDate.map(_.getMillis)))
+          article.creationDate.map(_.toInstant(ZoneOffset.UTC).toEpochMilli),
+          article.updateDate.map(_.toInstant(ZoneOffset.UTC).toEpochMilli)))
     })
 }
